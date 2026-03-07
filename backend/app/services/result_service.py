@@ -19,6 +19,7 @@ from app.services.audit_service import log_event
 from app.services.verification_service import verify_chain
 
 
+
 class ResultError(Exception):
     pass
 
@@ -68,6 +69,8 @@ def tally_results(db: Session, election_id: str) -> dict:
         if votes > max_votes:
             max_votes = votes
             winner    = c.full_name
+        elif votes == max_votes:
+            winner    = "Draw"
 
     return {
         "election_id":     election_id,

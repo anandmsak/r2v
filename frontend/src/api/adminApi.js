@@ -12,6 +12,5 @@ export const uploadEligibilityCSV = (election_id, file) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
-
 export const getAuditChain = (election_id) =>
-  axiosClient.get(`/verification/chain/${election_id}`);
+  axiosClient.get(`/verify/chain/${election_id}`);
