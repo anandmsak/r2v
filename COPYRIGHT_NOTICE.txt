@@ -1,0 +1,7 @@
+R2V (Right to Vote)
+Copyright (c) 2026 Anandha Krishnan P
+All rights reserved.
+
+Author: Anandha Krishnan P
+Project: R2V v1
+Year: 2026
