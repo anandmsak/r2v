@@ -46,7 +46,6 @@ def create(
 def list_for_election(
     election_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
 ):
     return list_candidates(db, election_id)
 

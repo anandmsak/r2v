@@ -83,14 +83,20 @@ def issue_token(
         raise BallotError("You have already cast your vote in this election.")
 
     # 4. Check for existing unused token (reissue same one)
+    # 4. Check for existing unused token
     existing_token = db.query(BallotToken).filter(
         BallotToken.election_id == election_id,
         BallotToken.user_id     == voter.id,
         BallotToken.is_used     == False,
     ).first()
     if existing_token:
-        # Token already issued and not yet used — deny reissue
-        raise BallotError("A ballot token has already been issued. Use it to cast your vote.")
+        if existing_token.expires_at > _now():
+            # Valid unexpired token exists — deny reissue
+            raise BallotError("A ballot token has already been issued. Use it to cast your vote.")
+        else:
+            # Expired token — delete it and allow reissue
+            db.delete(existing_token)
+            db.commit()
 
     # 5. Generate raw token, store only hash
     raw_token  = secrets.token_hex(32)   # 64-char hex = 256 bits entropy
