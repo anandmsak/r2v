@@ -15,8 +15,22 @@ axiosClient.interceptors.request.use((config) => {
 axiosClient.interceptors.response.use(
   (res) => res,
   (err) => {
-    const msg = err.response?.data?.detail || err.message || "Request failed";
-    return Promise.reject(new Error(Array.isArray(msg) ? msg[0]?.msg : msg));
+    const detail = err.response?.data?.detail;
+    // Pydantic v2 validation errors come as an array of objects
+    let raw;
+    if (Array.isArray(detail)) {
+      raw = detail[0]?.msg || "Validation error";
+    } else {
+      raw = detail || err.message || "Request failed";
+    }
+
+    // Replace any Pydantic internal messages with clean user-facing strings
+    const lower = (raw || "").toLowerCase();
+    let clean = raw;
+    if (lower.includes("string should have") || lower.includes("value error"))
+      clean = "Please fill in all required fields correctly.";
+
+    return Promise.reject(new Error(clean));
   }
 );
 
