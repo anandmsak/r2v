@@ -1,109 +1,296 @@
 // Copyright (c) 2026 Anandha Krishnan P — R2V (Right to Vote)
-import { useState } from "react";
-import { verifyReceipt, verifyChain } from "../../api/ballotApi";
+// File: src/pages/auditor/VerificationPage.jsx
+import { useState, useEffect } from "react";
+import { getAllElections } from "../../api/electionApi";
+import { verifyChain } from "../../api/ballotApi";
 import Navbar from "../../components/common/Navbar";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 export default function VerificationPage() {
-  const [receiptId, setReceiptId]   = useState("");
-  const [electionId, setElectionId] = useState("");
-  const [receiptRes, setReceiptRes] = useState(null);
-  const [chainRes, setChainRes]     = useState(null);
-  const [rLoading, setRLoading]     = useState(false);
-  const [cLoading, setCLoading]     = useState(false);
-  const [rErr, setRErr]             = useState("");
-  const [cErr, setCErr]             = useState("");
+  const [elections, setElections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [results, setResults] = useState({}); // { [election_id]: { valid, mismatches, checked } }
+  const [error, setError] = useState("");
 
-  async function checkReceipt(e) {
-    e.preventDefault();
-    if (!receiptId.trim()) return;
-    setRLoading(true); setRErr(""); setReceiptRes(null);
-    try { const r = await verifyReceipt(receiptId.trim()); setReceiptRes(r.data); }
-    catch (e) { setRErr(e.message); }
-    finally { setRLoading(false); }
+  useEffect(() => {
+    getAllElections()
+      .then((r) => setElections(r.data))
+      .catch(() => setError("Failed to load elections."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function verify(id) {
+    setVerifyingId(id);
+    try {
+      const res = await verifyChain(id);
+      setResults((prev) => ({ ...prev, [id]: res.data }));
+    } catch (e) {
+      setResults((prev) => ({
+        ...prev,
+        [id]: { valid: false, error: e.message || "Verification failed." },
+      }));
+    } finally {
+      setVerifyingId(null);
+    }
   }
 
-  async function checkChain(e) {
-    e.preventDefault();
-    if (!electionId.trim()) return;
-    setCLoading(true); setCErr(""); setChainRes(null);
-    try { const r = await verifyChain(electionId.trim()); setChainRes(r.data); }
-    catch (e) { setCErr(e.message); }
-    finally { setCLoading(false); }
+  if (loading) {
+    return (
+      <div style={s.root}>
+        <Navbar />
+        <LoadingSpinner text="Loading elections…" />
+      </div>
+    );
   }
 
   return (
     <div style={s.root}>
-      <div style={s.gridBg} />
+      <div style={s.grid} />
       <Navbar />
       <div style={s.container}>
-        <span style={s.badge}>VERIFICATION</span>
-        <h1 style={s.title}>Audit & Verify</h1>
-        <p style={s.sub}>Independently verify vote receipts and chain integrity.</p>
-
-        <div style={s.grid2}>
-          {/* Receipt verify */}
-          <div style={s.panel}>
-            <h2 style={s.panelTitle}>Verify Receipt</h2>
-            <p style={s.panelSub}>Check if a specific vote receipt exists and is unaltered.</p>
-            <form onSubmit={checkReceipt} style={s.form}>
-              <input style={s.input} placeholder="Receipt UUID" value={receiptId} onChange={e => setReceiptId(e.target.value)} />
-              {rErr && <p style={s.err}>{rErr}</p>}
-              <button style={s.btn} type="submit" disabled={rLoading}>{rLoading ? "Checking…" : "Verify Receipt"}</button>
-            </form>
-            {receiptRes && (
-              <div style={{ ...s.resultBox, borderColor: receiptRes.hash_valid ? "#4ade80" : "#f87171", background: receiptRes.hash_valid ? "#0d1a0d" : "#1a0d0d" }}>
-                <p style={{ ...s.resultStatus, color: receiptRes.hash_valid ? "#4ade80" : "#f87171" }}>
-                  {receiptRes.hash_valid ? "✓ Valid" : "✕ Invalid"}
-                </p>
-                <p style={s.resultMsg}>{receiptRes.message}</p>
-                <p style={s.resultMeta}>Sequence #{receiptRes.sequence} · {new Date(receiptRes.cast_at).toLocaleString()}</p>
-                <p style={s.hashText}>{receiptRes.current_hash}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Chain verify */}
-          <div style={s.panel}>
-            <h2 style={s.panelTitle}>Verify Ballot Chain</h2>
-            <p style={s.panelSub}>Validate the entire ballot chain for an election.</p>
-            <form onSubmit={checkChain} style={s.form}>
-              <input style={s.input} placeholder="Election UUID" value={electionId} onChange={e => setElectionId(e.target.value)} />
-              {cErr && <p style={s.err}>{cErr}</p>}
-              <button style={s.btn} type="submit" disabled={cLoading}>{cLoading ? "Verifying…" : "Verify Chain"}</button>
-            </form>
-            {chainRes && (
-              <div style={{ ...s.resultBox, borderColor: chainRes.chain_valid ? "#4ade80" : "#f87171", background: chainRes.chain_valid ? "#0d1a0d" : "#1a0d0d" }}>
-                <p style={{ ...s.resultStatus, color: chainRes.chain_valid ? "#4ade80" : "#f87171" }}>
-                  {chainRes.chain_valid ? "✓ Chain Valid" : "✕ Chain Broken"}
-                </p>
-                <p style={s.resultMeta}>{chainRes.total_ballots} ballots · {chainRes.mismatches} mismatches</p>
-              </div>
-            )}
-          </div>
+        {/* Header */}
+        <div style={s.hero}>
+          <span style={s.badge}>AUDITOR PORTAL</span>
+          <h1 style={s.title}>Chain Verification</h1>
+          <p style={s.sub}>
+            Verify ballot chain integrity for any election. A valid chain means
+            no votes have been tampered with.
+          </p>
         </div>
+
+        {error && <div style={s.errorBox}>⚠ {error}</div>}
+
+        {elections.length === 0 ? (
+          <div style={s.empty}>
+            <p style={s.emptyText}>No elections found.</p>
+          </div>
+        ) : (
+          <div style={s.list}>
+            {elections.map((election) => {
+              const result = results[election.id];
+              const isVerifying = verifyingId === election.id;
+
+              return (
+                <div key={election.id} style={s.card}>
+                  {/* Left — election info */}
+                  <div style={s.cardLeft}>
+                    <div style={s.cardTop}>
+                      <span
+                        style={{
+                          ...s.statusDot,
+                          background:
+                            election.status === "active"
+                              ? "#4ade80"
+                              : election.status === "completed"
+                                ? "#60a5fa"
+                                : "#444",
+                        }}
+                      />
+                      <span style={s.statusText}>
+                        {(election.status || "draft").toUpperCase()}
+                      </span>
+                    </div>
+                    <h2 style={s.electionTitle}>{election.title}</h2>
+                    {election.description && (
+                      <p style={s.electionDesc}>{election.description}</p>
+                    )}
+                    <p style={s.electionId}>ID: {election.id}</p>
+                  </div>
+
+                  {/* Right — verify button + result */}
+                  <div style={s.cardRight}>
+                    {/* Result banner */}
+                    {result && !result.error && (
+                      <div
+                        style={{
+                          ...s.resultBadge,
+                          background: result.valid ? "#0a1a0a" : "#1a0a0a",
+                          border: `1px solid ${result.valid ? "#1a3a1a" : "#3a1a1a"}`,
+                          color: result.valid ? "#4ade80" : "#f87171",
+                        }}
+                      >
+                        <span style={s.resultIcon}>
+                          {result.valid ? "✓" : "✗"}
+                        </span>
+                        <div>
+                          <div style={s.resultTitle}>
+                            {result.valid ? "Chain Valid" : "Tamper Detected"}
+                          </div>
+                          <div style={s.resultSub}>
+                            {result.valid
+                              ? `${result.ballots_checked ?? ""} ballots checked · 0 mismatches`
+                              : `${result.mismatches ?? "?"} mismatch(es) found`}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {result?.error && (
+                      <div style={s.resultError}>⚠ {result.error}</div>
+                    )}
+
+                    <button
+                      style={{
+                        ...s.verifyBtn,
+                        opacity: isVerifying ? 0.6 : 1,
+                        cursor: isVerifying ? "not-allowed" : "pointer",
+                      }}
+                      onClick={() => verify(election.id)}
+                      disabled={isVerifying}
+                    >
+                      {isVerifying
+                        ? "Verifying…"
+                        : result
+                          ? "Re-verify →"
+                          : "Verify Chain →"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 const s = {
-  root: { minHeight: "100vh", background: "#0a0a0a", fontFamily: "'DM Mono', monospace", position: "relative" },
-  gridBg: { position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none", zIndex: 0 },
-  container: { maxWidth: "900px", margin: "0 auto", padding: "48px 24px 80px", position: "relative", zIndex: 1 },
-  badge: { display: "inline-block", fontSize: "0.62rem", color: "#60a5fa", letterSpacing: "0.15em", border: "1px solid #1a2a4a", borderRadius: "4px", padding: "3px 10px", background: "#0a1020", marginBottom: "14px" },
-  title: { fontSize: "2rem", fontWeight: "700", color: "#fff", margin: "0 0 8px", letterSpacing: "-0.03em" },
-  sub: { fontSize: "0.82rem", color: "#555", margin: "0 0 40px" },
-  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" },
-  panel: { background: "#111", border: "1px solid #1e1e1e", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px" },
-  panelTitle: { fontSize: "0.95rem", fontWeight: "700", color: "#fff", margin: 0 },
-  panelSub: { fontSize: "0.75rem", color: "#555", margin: 0, lineHeight: "1.5" },
-  form: { display: "flex", flexDirection: "column", gap: "8px" },
-  input: { background: "#0a0a0a", border: "1px solid #2a2a2a", borderRadius: "8px", color: "#fff", padding: "11px 14px", fontSize: "0.82rem", fontFamily: "inherit", outline: "none" },
-  btn: { background: "#4ade80", color: "#0a0a0a", border: "none", borderRadius: "8px", padding: "11px", fontSize: "0.82rem", fontWeight: "700", fontFamily: "inherit", cursor: "pointer" },
-  err: { color: "#f87171", fontSize: "0.75rem", margin: 0 },
-  resultBox: { border: "1px solid", borderRadius: "8px", padding: "16px" },
-  resultStatus: { fontSize: "1rem", fontWeight: "700", margin: "0 0 4px" },
-  resultMsg: { fontSize: "0.78rem", color: "#888", margin: "0 0 6px" },
-  resultMeta: { fontSize: "0.72rem", color: "#555", margin: "0 0 8px" },
-  hashText: { fontSize: "0.62rem", color: "#4ade80", wordBreak: "break-all", margin: 0 },
+  root: {
+    minHeight: "100vh",
+    background: "#0a0a0a",
+    fontFamily: "'DM Mono', monospace",
+    position: "relative",
+  },
+  grid: {
+    position: "fixed",
+    inset: 0,
+    backgroundImage:
+      "linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px)",
+    backgroundSize: "40px 40px",
+    pointerEvents: "none",
+    zIndex: 0,
+  },
+  container: {
+    maxWidth: "900px",
+    margin: "0 auto",
+    padding: "48px 24px 80px",
+    position: "relative",
+    zIndex: 1,
+  },
+  hero: { marginBottom: "40px" },
+  badge: {
+    display: "inline-block",
+    fontSize: "0.62rem",
+    color: "#60a5fa",
+    letterSpacing: "0.15em",
+    border: "1px solid #1a2a4a",
+    borderRadius: "4px",
+    padding: "3px 10px",
+    background: "#0a0f1a",
+    marginBottom: "14px",
+  },
+  title: {
+    fontSize: "2rem",
+    fontWeight: "700",
+    color: "#fff",
+    margin: "0 0 8px",
+    letterSpacing: "-0.03em",
+  },
+  sub: { fontSize: "0.82rem", color: "#555", margin: 0, lineHeight: "1.6" },
+  errorBox: {
+    background: "#1a0a0a",
+    border: "1px solid #3a1a1a",
+    borderRadius: "8px",
+    padding: "12px 16px",
+    color: "#f87171",
+    fontSize: "0.8rem",
+    marginBottom: "20px",
+  },
+  empty: { textAlign: "center", padding: "80px 0" },
+  emptyText: { color: "#444", fontSize: "0.9rem" },
+  list: { display: "flex", flexDirection: "column", gap: "12px" },
+  card: {
+    background: "#111",
+    border: "1px solid #1e1e1e",
+    borderRadius: "12px",
+    padding: "24px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "24px",
+    flexWrap: "wrap",
+  },
+  cardLeft: { flex: 1, minWidth: "200px" },
+  cardTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "10px",
+  },
+  statusDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  statusText: { fontSize: "0.6rem", color: "#555", letterSpacing: "0.12em" },
+  electionTitle: {
+    fontSize: "1rem",
+    fontWeight: "700",
+    color: "#fff",
+    margin: "0 0 6px",
+  },
+  electionDesc: {
+    fontSize: "0.75rem",
+    color: "#555",
+    margin: "0 0 8px",
+    lineHeight: "1.5",
+  },
+  electionId: {
+    fontSize: "0.65rem",
+    color: "#333",
+    margin: 0,
+    wordBreak: "break-all",
+  },
+  cardRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "10px",
+    flexShrink: 0,
+  },
+  resultBadge: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    minWidth: "200px",
+  },
+  resultIcon: { fontSize: "1rem", flexShrink: 0, marginTop: "1px" },
+  resultTitle: { fontSize: "0.82rem", fontWeight: "700" },
+  resultSub: { fontSize: "0.7rem", opacity: 0.7, marginTop: "2px" },
+  resultError: {
+    background: "#1a0808",
+    border: "1px solid #3a1010",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    color: "#f87171",
+    fontSize: "0.75rem",
+    minWidth: "200px",
+  },
+  verifyBtn: {
+    background: "#60a5fa",
+    color: "#000",
+    border: "none",
+    borderRadius: "8px",
+    padding: "10px 20px",
+    fontSize: "0.82rem",
+    fontWeight: "700",
+    fontFamily: "'DM Mono', monospace",
+    transition: "opacity 0.2s",
+    whiteSpace: "nowrap",
+  },
 };

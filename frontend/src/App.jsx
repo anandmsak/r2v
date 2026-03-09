@@ -34,38 +34,73 @@ export default function App() {
 
           {/* ── Auth ── */}
           <Route path="/login/student" element={<StudentLoginPage />} />
-          <Route path="/login/admin"   element={<AdminPortalPage />} />
-          <Route path="/verify-otp"    element={<OTPVerifyPage />} />
+          <Route path="/login/admin" element={<AdminPortalPage />} />
+          <Route path="/verify-otp" element={<OTPVerifyPage />} />
 
           {/* Legacy redirect — if anything links to /login */}
           <Route path="/login" element={<Navigate to="/" replace />} />
 
           {/* ── Voter ── */}
-          <Route path="/voter/elections" element={
-            <ProtectedRoute role="voter"><ActiveElectionsPage /></ProtectedRoute>
-          } />
-          <Route path="/voter/ballot/:id" element={
-            <ProtectedRoute role="voter"><BallotPage /></ProtectedRoute>
-          } />
-          <Route path="/voter/receipt" element={
-            <ProtectedRoute role="voter"><ReceiptPage /></ProtectedRoute>
-          } />
-          <Route path="/voter/verify-receipt" element={
-            <ProtectedRoute role="voter"><ReceiptVerifyPage /></ProtectedRoute>
-          } />
+          <Route
+            path="/voter/elections"
+            element={
+              <ProtectedRoute role="voter">
+                <ActiveElectionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/voter/ballot/:id"
+            element={
+              <ProtectedRoute role="voter">
+                <BallotPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/voter/receipt"
+            element={
+              <ProtectedRoute role="voter">
+                <ReceiptPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/voter/verify-receipt"
+            element={
+              <ProtectedRoute role="voter">
+                <ReceiptVerifyPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ── Admin ── */}
-          <Route path="/admin/dashboard" element={
-            <ProtectedRoute role="admin"><DashboardPage /></ProtectedRoute>
-          } />
-          <Route path="/admin/election/:id" element={
-            <ProtectedRoute role="admin"><CreateElectionPage /></ProtectedRoute>
-          } />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute role="admin">
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/election/:id"
+            element={
+              <ProtectedRoute role="admin">
+                <CreateElectionPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ── Auditor ── */}
-          <Route path="/auditor/verify" element={
-            <ProtectedRoute role="auditor"><VerificationPage /></ProtectedRoute>
-          } />
+          <Route
+            path="/auditor/verify"
+            element={
+              <ProtectedRoute role="auditor">
+                <VerificationPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ── Fallback ── */}
           <Route path="*" element={<Navigate to="/" replace />} />

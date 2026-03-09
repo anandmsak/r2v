@@ -31,7 +31,7 @@ axiosClient.interceptors.response.use(
       clean = "Please fill in all required fields correctly.";
 
     return Promise.reject(new Error(clean));
-  }
+  },
 );
 
 export default axiosClient;
